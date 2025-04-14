@@ -3,11 +3,12 @@
 #include <string.h>
 #include <stdbool.h>
 #include <unistd.h>
+#include <time.h>
 
 #define QUEUE_SIZE 300000
 #define NODE_NUM 14
-#define POS_SIZE 5
-#define MAX_PIECES 4
+// #define POS_SIZE 5
+// #define MAX_PIECES 4
 #define MAX_NEIGHBORS 3
 #define SIMPLE
 
@@ -41,7 +42,7 @@ Node *createNode(char label)
 #pragma endregion
 
 #pragma region Helper Function Prototypes
-void printBoard(Node *board[], int nodeNum);
+void printBoard(Node *board[]);
 bool isGoalState(Node *board[], const char *goalWhitePos, const char *goalBlackPos);
 void setBoardState(Node *board[], const char *whiteNewPos, const char *blackNewPos);
 char *getPiecesPosition(Node *board[]);
@@ -49,7 +50,7 @@ char *getPiecesPosition(Node *board[]);
 
 #pragma region Hash Table
 // --- Hash Table ---
-#define TABLE_SIZE 1000 // You may need to adjust this size
+#define TABLE_SIZE 1000000
 
 typedef struct HashEntry
 {
@@ -64,16 +65,15 @@ HashEntry *hashTable[TABLE_SIZE]; // The hash table
 unsigned long hashBoardState(Node *board[], int nodeNum)
 {
     unsigned long hash = 0;
-    // Use base 3 since each node can have 3 different states.
+    unsigned long prime = 53; // Or any other suitable prime number
     for (int i = 0; i < nodeNum; i++)
     {
         unsigned long cellValue = 0;
         if (board[i]->occupied)
         {
-            // White piece is represented by 1, Black by 2.
             cellValue = (board[i]->color == 0) ? 1UL : 2UL;
         }
-        hash = hash * 3UL + cellValue;
+        hash = hash * prime + cellValue;
     }
     return hash;
 }
@@ -162,8 +162,8 @@ void freeHashTable()
 // --- Queue Implementation ---
 typedef struct QueueData
 {
-    char whitePos[5];
-    char blackPos[5];
+    char whitePos[NODE_NUM + 1];
+    char blackPos[NODE_NUM + 1];
     char move[3];
     int predecessor;
 } QueueData;
@@ -193,7 +193,8 @@ bool isQueueEmpty(DynamicLinkedQueue *queue)
     return queue->head == NULL;
 }
 
-bool enqueueQueue(DynamicLinkedQueue *queue, const char *whitePos, const char *blackPos, const char *move, int currentIteration)
+bool enqueueQueue(DynamicLinkedQueue *queue, Node *board[], const char *whitePos, const char *blackPos,
+                  const char *move, int currentIteration, int whiteLen, int blackLen)
 {
     QueueNode *newNode = (QueueNode *)malloc(sizeof(QueueNode));
     if (newNode == NULL)
@@ -201,10 +202,11 @@ bool enqueueQueue(DynamicLinkedQueue *queue, const char *whitePos, const char *b
         perror("Failed to allocate memory for queue node");
         return false;
     }
-    strncpy(newNode->data.whitePos, whitePos, 4);
-    newNode->data.whitePos[4] = '\0'; // Ensure null-termination
-    strncpy(newNode->data.blackPos, blackPos, 4);
-    newNode->data.blackPos[4] = '\0'; // Ensure null-termination
+    
+    strncpy(newNode->data.whitePos, whitePos, whiteLen);
+    newNode->data.whitePos[whiteLen] = '\0'; // Ensure null-termination
+    strncpy(newNode->data.blackPos, blackPos, blackLen);
+    newNode->data.blackPos[blackLen] = '\0'; // Ensure null-termination
     strncpy(newNode->data.move, move, 2);
     newNode->data.move[2] = '\0'; // Ensure null-termination
     newNode->data.predecessor = currentIteration;
@@ -359,7 +361,7 @@ void printBoardForSolution(Node *board[], const char *whitePos, const char *blac
             }
         }
 
-        printBoard(board, NODE_NUM);
+        printBoard(board);
         // printf("Move: %s, Predecessor: %d\n", predecessors[index].move, predecessors[index].predecessor);
     }
 }
@@ -367,10 +369,10 @@ void printBoardForSolution(Node *board[], const char *whitePos, const char *blac
 #pragma endregion
 
 #pragma region Helper Functions
-void printBoard(Node *board[], int nodeNum)
+void printBoard(Node *board[])
 {
     printf("\nBoard:\n");
-    for (int i = 0; i < nodeNum; i++)
+    for (int i = 0; i < NODE_NUM; i++)
     {
         printf("%c: %s\n", board[i]->label, board[i]->occupied ? board[i]->color ? "Black" : "White" : "");
     }
@@ -467,25 +469,11 @@ void setBoardState(Node *board[], const char *whiteNewPos, const char *blackNewP
     // printf("Board state set.\n");
 }
 
-char *getPiecesPosition(Node *board[])
+void generateNextStates(Node *board[], DynamicLinkedQueue *queue, int currentIteration)
 {
-    char *piecesPosition = (char *)malloc(2 * POS_SIZE);
-
-    if (piecesPosition == NULL)
-    {
-        perror("Memory allocation failed");
-        return NULL;
-    }
-
-    char *whitePieces = piecesPosition;            // Start of the white piece string
-    char *blackPieces = piecesPosition + POS_SIZE; // Start of the black piece string
-
-    for (int i = 0; i < POS_SIZE; i++)
-    {
-        whitePieces[i] = 0;
-        blackPieces[i] = 0;
-    }
-
+    // Get the current positions of white and black pieces from the board
+    char currentWhitePos[NODE_NUM + 1] = {0};
+    char currentBlackPos[NODE_NUM + 1] = {0};
     int whiteIndex = 0, blackIndex = 0;
     for (int i = 0; i < NODE_NUM; i++)
     {
@@ -493,22 +481,17 @@ char *getPiecesPosition(Node *board[])
         {
             if (board[i]->color == 0) // White
             {
-                whitePieces[whiteIndex++] = board[i]->label;
+                currentWhitePos[whiteIndex++] = board[i]->label;
             }
             else // Black
             {
-                blackPieces[blackIndex++] = board[i]->label;
+                currentBlackPos[blackIndex++] = board[i]->label;
             }
         }
     }
-    whitePieces[whiteIndex] = '\0';
-    blackPieces[blackIndex] = '\0';
-    // printf("Current White: %s, Current Black: %s\n", whitePieces, blackPieces);
-    return piecesPosition;
-}
+    currentWhitePos[whiteIndex] = '\0';
+    currentBlackPos[blackIndex] = '\0';
 
-void generateNextStates(Node *board[], DynamicLinkedQueue *queue, int currentIteration)
-{
     // Generate next states based on the current board state
     for (int i = 0; i < NODE_NUM; i++)
     {
@@ -520,13 +503,9 @@ void generateNextStates(Node *board[], DynamicLinkedQueue *queue, int currentIte
                 if (!board[i]->neighbors[j]->occupied)
                 {
                     char move[3] = {board[i]->label, board[i]->neighbors[j]->label, '\0'};
-                    char *piecesPosition = getPiecesPosition(board);
 
-                    char *whitePieces = piecesPosition;
-                    char *blackPieces = piecesPosition + POS_SIZE; // Start of the black piece string
-
-                    enqueueQueue(queue, whitePieces, blackPieces, move, currentIteration);
-                    free(piecesPosition);
+                    enqueueQueue(queue, board, currentWhitePos, currentBlackPos, move, currentIteration,
+                                 strlen(currentWhitePos), strlen(currentBlackPos));
                 }
             }
         }
@@ -537,6 +516,9 @@ void generateNextStates(Node *board[], DynamicLinkedQueue *queue, int currentIte
 
 int main(int argc, char *argv[])
 {
+    clock_t start, end;
+    double cpu_time_used;
+
 #pragma region Error Handling
     // Check for correct number of arguments
     if (argc != 5)
@@ -661,18 +643,19 @@ int main(int argc, char *argv[])
     initHashTable();
     Predecessor predecessors[QUEUE_SIZE];
     int goalState = -1;
-    char loading[8] = {'|', '|', '/', '/', '-', '-', '\\', '\\'};
 #pragma endregion
 
     // printf("Starting positions: White: %s, Black: %s\n", argv[1], argv[2]);
     char *whitePieces = strdup(argv[1]);
     char *blackPieces = strdup(argv[2]);
+    int whitePiecesLength = strlen(whitePieces);
+    int blackPiecesLength = strlen(blackPieces);
 
     setBoardState(board, whitePieces, blackPieces);
     // printf("Initial Positions: White: %s, Black: %s\n", whitePieces, blackPieces);
     int iteration = 0;
 
-    printBoard(board, NODE_NUM);
+    printBoard(board);
     // Generate current board hash
     unsigned long currentHash = hashBoardState(board, NODE_NUM);
     // printf("Current Hash: %lu\n", currentHash);
@@ -693,22 +676,19 @@ int main(int argc, char *argv[])
     generateNextStates(board, &queue, iteration);
     // printQueue(&queue);
 
+    start = clock();
+
     while (!isQueueEmpty(&queue))
     {
-#ifdef SIMPLE
-        printf("Loading... ");
-        printf("%c\r", loading[iteration % 8]);
-        fflush(stdout);
-        printf("\r");
-#endif // SIMPLE
+    next_iteration:;
 
 #ifndef SIMPLE
         printf("----------Iteration: %6d----------\n", iteration);
 #endif // !SIMPLE
 
         QueueData state = dequeueQueue(&queue);
-#ifndef SIMPLE
 
+#ifndef SIMPLE
         printf("Dequeue: %s %s|%s : ", state.whitePos, state.blackPos, state.move);
 #endif // !SIMPLE
 
@@ -720,39 +700,45 @@ int main(int argc, char *argv[])
 
         Node *prevNode = NULL;
         Node *newNode = NULL;
-        // Find the previous and new nodes
+
+        // Find the previous and new nodes and validate move
         for (int i = 0; i < NODE_NUM; i++)
         {
             if (board[i]->label == prevPos)
             {
                 prevNode = board[i];
+                if (!prevNode->occupied)
+                {
+                    printf("[Skipping]: No piece found at %c\n", prevPos);
+                    goto next_iteration; // Jump to the end of the loop
+                }
             }
-            if (board[i]->label == newPos)
+            else if (board[i]->label == newPos)
             {
                 newNode = board[i];
+                if (newNode->occupied)
+                {
+                    printf("[Skipping]: %c is already occupied\n", newPos);
+                    goto next_iteration; // Jump to the end of the loop
+                }
             }
         }
-        if (prevNode == NULL || !prevNode->occupied)
+
+        if (prevNode == NULL)
         {
             printf("[Skipping]: No piece found at %c\n", prevPos);
-
-            continue;
+            goto next_iteration;
         }
         if (newNode == NULL)
         {
             printf("[Skipping]: Invalid move to %c\n", newPos);
-            continue;
-        }
-        if (newNode->occupied)
-        {
-            printf("[Skipping]: %c is already occupied\n", newPos);
-            continue;
+            goto next_iteration;
         }
 
         bool validMove = false;
-        for (int j = 0; j < 3; j++)
+        for (int j = 0; j < 3 && prevNode->neighbors[j] != NULL; j++)
         {
-            if (prevNode->neighbors[j] != NULL && prevNode->neighbors[j]->label == newPos)
+            if (prevNode->neighbors[j]->label == newPos)
             {
                 validMove = true;
                 break;
@@ -761,19 +747,20 @@ int main(int argc, char *argv[])
         if (!validMove)
         {
             printf("[Skipping]: Invalid move from %c to %c\n", prevPos, newPos);
-            continue;
+            goto next_iteration;
         }
-        // Set the new position
+
+        // Set the new position in a single loop
         for (int i = 0; i < NODE_NUM; i++)
         {
-            if (board[i]->label == prevPos)
+            if (board[i] == prevNode)
             {
                 board[i]->occupied = false;
             }
-            if (board[i]->label == newPos)
+            else if (board[i] == newNode)
             {
                 board[i]->occupied = true;
-                board[i]->color = prevNode->color; // Set the color based on the piece
+                board[i]->color = prevNode->color;
             }
         }
 
@@ -797,8 +784,6 @@ int main(int argc, char *argv[])
         newWhitePos[whiteIndex] = '\0';
         newBlackPos[blackIndex] = '\0';
 
-        // printBoard(board, NODE_NUM);
-
         unsigned long newHash = hashBoardState(board, NODE_NUM);
         // printf("New Hash: %lu\n", newHash);
         // Check if the new state is already in the hash table
@@ -814,34 +799,20 @@ int main(int argc, char *argv[])
 
         // Insert the new state into the hash table
         insertBoardState(newHash, newWhitePos, newBlackPos);
-        // printf("New state inserted into hash table.\n");
-        // Check if the goal state is reached
         iteration++;
 
         // Generate next states
-        // setPredecessor(iteration, state.move, iteration - 1);
-        // printPredecessor();
         predecessors[iteration].predecessor = state.predecessor;
         strncpy(predecessors[iteration].move, state.move, 2);
         predecessors[iteration].move[2] = '\0'; // Ensure null-termination
-        // printf("Predecessor: %d, Move: %s\n", predecessors[iteration].predecessor, predecessors[iteration].move);
 
         if (isGoalState(board, argv[3], argv[4]))
         {
             printf("Goal state reached!\n");
-
-            // printf("Final White: %s, Final Black: %s\n", newWhitePos, newBlackPos);
-            // printf("Final Hash: %lu\n", newHash);
-            // printf("Path to goal state:\n");
-            // printf("Step %d: Move: %s\n", iteration - 1, state.move);
-            // printf("Queue Size: %d\n", queue.size);
             goalState = iteration;
-
-            printBoard(board, NODE_NUM);
-
+            printBoard(board);
             int *path = (int *)malloc(QUEUE_SIZE * sizeof(int));
             int pathLength = 0;
-
             reconstructPath(predecessors, iteration, path, &pathLength);
 #ifndef SIMPLE
             printBoardForSolution(board, argv[1], argv[2], path, pathLength, predecessors);
@@ -865,6 +836,8 @@ int main(int argc, char *argv[])
         free(newBlackPos);
         // sleep(2); // Sleep for 0.5 seconds
     }
+    end = clock();
+    cpu_time_used = ((double)(end - start)) / CLOCKS_PER_SEC;
 
     if (goalState == -1)
     {
@@ -872,8 +845,11 @@ int main(int argc, char *argv[])
     }
     else
     {
+#ifndef SIMPLE
         printf("Solution found in %d iterations.\n", goalState);
+#endif // !SIMPLE
     }
+    printf("Time taken: %f seconds\n", cpu_time_used);
 
     freeQueue(&queue);
     free(whitePieces);
