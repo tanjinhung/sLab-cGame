@@ -638,6 +638,9 @@ int main(int argc, char *argv[])
     board[13]->neighbors[0] = board[12]; // N neighbor is M
     // --- End of Neighbors Definition ---
 
+#pragma endregion
+
+#pragma region Queue and Hash Table Initialization
     DynamicLinkedQueue queue;
     initQueue(&queue);
     initHashTable();
