@@ -21,7 +21,7 @@ static inline int pos_offset(char pos)
 
 uint32_t init_board(const char *white_pieces, const char *black_pieces)
 {
-    uint32_t board = 0b0000000000000000000000000000;
+    uint32_t board = 0;
     for (int i = 0; white_pieces[i] != '\0'; i++)
     {
         int offset = pos_offset(white_pieces[i]);
