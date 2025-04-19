@@ -337,7 +337,7 @@ void reconstruct_path(int goal_index, int path[], int *path_length)
 
 void print_path(int *path, int path_length)
 {
-    printf("Reconstructed Path:\n");
+    printf("Path:\n");
     for (int i = 0; i < path_length; i++)
     {
         int move = predecessors[path[i]].move;
@@ -551,7 +551,7 @@ int main(int argc, char *argv[])
     }
     else
     {
-        printf("Solution found in %d iterations.\n", goal_state);
+        printf("Solution found in %d iterations.\n\n", goal_state);
         print_path(path, path_length);
     }
 
