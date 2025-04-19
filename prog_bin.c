@@ -7,14 +7,14 @@
 #define BINARY
 #define SIMPLE
 
-#define TABLE_SIZE 1000000
+#define TABLE_SIZE 1048576 // 2^20
 #define NUM_POSITIONS 14
 
 #define SET_BIT(variable, bit) ((variable) |= (1UL << (bit)))
 #define CLEAR_BIT(variable, bit) ((variable) &= ~(1UL << (bit)))
 #define CHECK_BIT(variable, bit) (((variable) >> (bit)) & 1)
 
-int pos_offset(char pos)
+static inline int pos_offset(char pos)
 {
     return 2 * (NUM_POSITIONS - 1 - (pos - 'A'));
 }
@@ -35,7 +35,7 @@ uint32_t init_board(const char *white_pieces, const char *black_pieces)
     return board;
 }
 
-void move_piece(uint32_t *board, char from, char to)
+static inline void move_piece(uint32_t *board, char from, char to)
 {
     int from_offset = pos_offset(from);
     int to_offset = pos_offset(to);
@@ -54,10 +54,7 @@ void move_piece(uint32_t *board, char from, char to)
         return;
     }
 
-    *board &= ~(mask << from_offset); // Clear the piece from the original position
-    *board &= ~(mask << to_offset);   // Clear the piece from the new position
-
-    *board |= (piece << to_offset); // Set the piece in the new position
+    *board = (*board & ~(mask << from_offset) & ~(mask << to_offset)) | (piece << to_offset); // Set the piece in the new position
 }
 
 char get_symbol(uint32_t board, int pos_index)
@@ -142,7 +139,7 @@ void init_queue(Queue *queue)
     queue->size = 0;
 }
 
-int is_queue_empty(Queue *queue)
+static inline int is_queue_empty(Queue *queue)
 {
     return queue->head == NULL;
 }
@@ -215,7 +212,6 @@ void print_queue(Queue *queue)
     printf("\n");
 }
 #pragma endregion
-
 #pragma region Hash Table Implementation
 typedef struct HashEntry
 {
@@ -225,7 +221,7 @@ typedef struct HashEntry
 
 HashEntry *hash_table[TABLE_SIZE];
 
-unsigned long hash_board_state(uint32_t board)
+static inline unsigned long hash_board_state(uint32_t board)
 {
     return board % TABLE_SIZE;
 }
@@ -282,7 +278,6 @@ void free_hash_table()
     }
 }
 #pragma endregion
-
 #pragma region Predecessor Table Implementation
 typedef struct Predecessor
 {
