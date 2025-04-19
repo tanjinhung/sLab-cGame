@@ -2,3 +2,5 @@
 out
 *.o
 *.exe
+prog*
+prog
