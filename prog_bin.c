@@ -144,7 +144,7 @@ static inline int is_queue_empty(Queue *queue)
     return queue->head == NULL;
 }
 
-void enqueue(Queue *queue, uint32_t board, int move, int predecessor)
+static inline void enqueue(Queue *queue, uint32_t board, int move, int predecessor)
 {
     QueueNode *new_node = (QueueNode *)malloc(sizeof(QueueNode));
     if (new_node == NULL)
@@ -170,7 +170,7 @@ void enqueue(Queue *queue, uint32_t board, int move, int predecessor)
     queue->size++;
 }
 
-QueueNode *dequeue(Queue *queue)
+static inline QueueNode *dequeue(Queue *queue)
 {
     if (is_queue_empty(queue))
     {
@@ -234,7 +234,7 @@ void init_hash_table()
     }
 }
 
-void insert_board_state(uint32_t board)
+static void insert_board_state(uint32_t board)
 {
     unsigned long key = hash_board_state(board);
     HashEntry *new_entry = (HashEntry *)malloc(sizeof(HashEntry));
@@ -248,7 +248,7 @@ void insert_board_state(uint32_t board)
     hash_table[key] = new_entry;
 }
 
-int lookup_board_state(uint32_t board)
+static int lookup_board_state(uint32_t board)
 {
     unsigned long key = hash_board_state(board);
     HashEntry *current = hash_table[key];
@@ -288,7 +288,7 @@ typedef struct Predecessor
 
 Predecessor predecessors[TABLE_SIZE];
 
-void init_predecessor_table()
+static void init_predecessor_table()
 {
     for (int i = 0; i < TABLE_SIZE; i++)
     {
@@ -297,7 +297,7 @@ void init_predecessor_table()
     }
 }
 
-void set_predecessor(int index, int predecessor, int move, uint32_t board)
+static inline void set_predecessor(int index, int predecessor, int move, uint32_t board)
 {
     predecessors[index].board = board;
     predecessors[index].predecessor = predecessor;
@@ -337,7 +337,7 @@ void reconstruct_path(int goal_index, int path[], int *path_length)
 
 void print_path(int *path, int path_length)
 {
-    printf("Path:\n");
+    printf("\nPath:\n\n");
     for (int i = 0; i < path_length; i++)
     {
         int move = predecessors[path[i]].move;
@@ -356,7 +356,7 @@ void print_path(int *path, int path_length)
 
 #pragma endregion
 
-void generateNextState(Queue *queue, uint32_t board, const int neighbors[NUM_POSITIONS][4], int predecessor)
+static inline void generateNextState(Queue *queue, uint32_t board, const int neighbors[NUM_POSITIONS][4], int predecessor)
 {
     for (int i = 0; i < NUM_POSITIONS; i++)
     {
@@ -391,9 +391,9 @@ void generateNextState(Queue *queue, uint32_t board, const int neighbors[NUM_POS
 
 int main(int argc, char *argv[])
 {
-
     clock_t start, end;
     double cpu_time_used;
+    start = clock();
 
 #pragma region Argument Validation
     if (argc != 5)
@@ -508,10 +508,9 @@ int main(int argc, char *argv[])
 
     insert_board_state(board_start);
     generateNextState(&queue, board_start, neighbors, -1);
-    print_board(board_start);
+    // print_board(board_start);
 
 #pragma region Main Loop
-    start = clock();
     int iteration = 0;
     while (!is_queue_empty(&queue))
     {
@@ -528,8 +527,8 @@ int main(int argc, char *argv[])
         // Check if the current board matches the goal board
         if (current_board == board_goal)
         {
-            printf("Goal state reached!\n");
-            print_board(current_board);
+            // printf("Goal state reached!\n");
+            // print_board(current_board);
 
             goal_state = iteration;
             reconstruct_path(iteration, path, &path_length);
@@ -542,23 +541,15 @@ int main(int argc, char *argv[])
         free(state);
         // sleep(1);
     }
-    end = clock();
 #pragma endregion
 
-    if (goal_state == -1)
-    {
-        printf("No solution found.\n");
-    }
-    else
-    {
-        printf("Solution found in %d iterations.\n\n", goal_state);
-        print_path(path, path_length);
-    }
+    (goal_state == -1) ? printf("No solution found.\n") : print_path(path, path_length);
 
     free_queue(&queue);
     free_hash_table();
     free(path);
+    end = clock();
     cpu_time_used = ((double)(end - start)) / CLOCKS_PER_SEC;
-    printf("Time taken: %f seconds\n", cpu_time_used);
+    printf("Time taken: %f ms\n", cpu_time_used * 1000.0);
     return 0;
 }
