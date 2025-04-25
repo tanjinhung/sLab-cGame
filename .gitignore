@@ -4,3 +4,7 @@ out
 *.exe
 prog*
 prog
+*.pptx
+*.pdf
+*.zip
+*.tar.gz
