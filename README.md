@@ -21,3 +21,10 @@ To rebuild the file due to dependency:
 ```bash
 cc -o prog prog.c -std=c99
 ```
+
+To use the timer.sh to calculate the real time runtime of the program:
+
+```bash
+# N represents the number of runs to average out of (default: 10)
+./timer.sh -n N ./prog CDEF IJKL IJKL CEDF
+```
