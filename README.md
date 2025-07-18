@@ -32,5 +32,4 @@ Appendix
 ---
 
 ![Figure 1](./img/fig1.png)
-
 ![Figure 2](./img/fig2.png)
