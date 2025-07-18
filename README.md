@@ -19,7 +19,7 @@ Usage
 To rebuild the file due to dependency:
 
 ```bash
-cc -o prog prog.c -std=c99
+cc -o prog prog_bin.c -std=c99
 ```
 
 To use the timer.sh to calculate the real time runtime of the program:
